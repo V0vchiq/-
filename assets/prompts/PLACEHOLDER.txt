@@ -1,0 +1,1 @@
+Store system prompt templates used by the AI engine.
