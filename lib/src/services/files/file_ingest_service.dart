@@ -8,11 +8,26 @@ final fileIngestServiceProvider = Provider<FileIngestService>((ref) {
   return FileIngestService();
 });
 
+class PickedFile {
+  final String name;
+  final String path;
+  final String? content;
+  final bool isSupported;
+  
+  const PickedFile({
+    required this.name,
+    required this.path,
+    this.content,
+    this.isSupported = true,
+  });
+}
+
 class FileIngestService {
-  Future<String?> pickAndRead() async {
+  static const _textExtensions = ['txt', 'md', 'json', 'csv', 'xml', 'html', 'css', 'js', 'dart', 'py', 'java', 'kt', 'swift', 'c', 'cpp', 'h', 'yml', 'yaml', 'toml', 'ini', 'conf', 'log'];
+  
+  Future<PickedFile?> pickFile() async {
     final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['txt', 'md', 'json', 'csv', 'pdf'],
+      type: FileType.any,
       withData: false,
     );
     if (result == null || result.files.isEmpty) {
@@ -23,11 +38,35 @@ class FileIngestService {
     if (path == null) {
       return null;
     }
+    
     final extension = path.split('.').last.toLowerCase();
-    if (extension == 'pdf') {
-      return 'Вложение PDF получено. Пожалуйста, сформулируйте вопрос по документу.';
+    final isText = _textExtensions.contains(extension);
+    
+    if (!isText) {
+      return PickedFile(
+        name: file.name,
+        path: path,
+        content: null,
+        isSupported: false,
+      );
     }
-    final bytes = await File(path).readAsBytes();
-    return utf8.decode(bytes, allowMalformed: true);
+    
+    try {
+      final bytes = await File(path).readAsBytes();
+      final content = utf8.decode(bytes, allowMalformed: true);
+      return PickedFile(
+        name: file.name,
+        path: path,
+        content: content,
+        isSupported: true,
+      );
+    } catch (e) {
+      return PickedFile(
+        name: file.name,
+        path: path,
+        content: null,
+        isSupported: false,
+      );
+    }
   }
 }

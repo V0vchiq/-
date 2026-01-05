@@ -1,6 +1,7 @@
 import 'package:device_calendar/device_calendar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:timezone/timezone.dart' as tz;
 
 import '../../../services/calendar/calendar_service.dart';
 
@@ -73,10 +74,17 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     final service = ref.read(calendarServiceProvider);
     final calendar = _calendar;
     if (calendar == null) return;
+    service.ensureTimeZonesInitialized();
     final now = DateTime.now().add(const Duration(hours: 1));
+    final tzNow = tz.TZDateTime.from(now, tz.local);
     final success = await service.addEvent(
       calendar,
-      Event(calendar.id, title: 'StarMind напоминание', start: now, end: now.add(const Duration(minutes: 30))),
+      Event(
+        calendar.id,
+        title: 'Nexus напоминание',
+        start: tzNow,
+        end: tzNow.add(const Duration(minutes: 30)),
+      ),
     );
     if (success) {
       await _load();

@@ -9,50 +9,24 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:yandex_auth_sdk/yandex_auth_sdk.dart';
+import 'package:flutter/services.dart';
 
-import '../../features/auth/presentation/login_screen.dart';
 import '../../features/chat/presentation/chat_shell.dart';
 import '../../features/splash/presentation/splash_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  final auth = ref.watch(authControllerProvider);
-
   return GoRouter(
     initialLocation: SplashScreen.routePath,
-    refreshListenable: auth,
     routes: [
       GoRoute(
         path: SplashScreen.routePath,
         builder: (context, state) => const SplashScreen(),
       ),
       GoRoute(
-        path: LoginScreen.routePath,
-        builder: (context, state) => const LoginScreen(),
-      ),
-      GoRoute(
         path: ChatShell.routePath,
         builder: (context, state) => const ChatShell(),
       ),
     ],
-    redirect: (context, state) {
-      final status = auth.state.status;
-      final path = state.fullPath;
-
-      if (status == AuthStatus.loading) {
-        return SplashScreen.routePath;
-      }
-
-      if (status == AuthStatus.unauthenticated && path != LoginScreen.routePath) {
-        return LoginScreen.routePath;
-      }
-
-      if (status == AuthStatus.authenticated && path == LoginScreen.routePath) {
-        return ChatShell.routePath;
-      }
-
-      return null;
-    },
   );
 });
 
@@ -76,9 +50,13 @@ final authControllerProvider = ChangeNotifierProvider<AuthController>((ref) {
 });
 
 class AuthController extends AuthListenable {
-  AuthController(this._service) : super(AuthState.loading());
+  AuthController(this._service) : super(const AuthState.loading());
 
   final AuthService _service;
+
+  AuthStatus get status => state.status;
+  String? get error => state.error;
+  String? get userId => state.userId;
 
   Future<void> initialize() async {
     final state = await _service.restoreSession();
@@ -86,33 +64,33 @@ class AuthController extends AuthListenable {
   }
 
   Future<void> signInWithEmail(String email, String password) async {
-    update(AuthState.loading());
+    update(const AuthState.loading());
     final result = await _service.signInWithEmail(email, password);
     update(result);
   }
 
   Future<void> registerWithEmail(String email, String password) async {
-    update(AuthState.loading());
+    update(const AuthState.loading());
     final result = await _service.registerWithEmail(email, password);
     update(result);
   }
 
   Future<void> signInWithGoogle() async {
-    update(AuthState.loading());
+    update(const AuthState.loading());
     final result = await _service.signInWithGoogle();
     update(result);
   }
 
   Future<void> signInWithYandex() async {
-    update(AuthState.loading());
+    update(const AuthState.loading());
     final result = await _service.signInWithYandex();
     update(result);
   }
 
   Future<void> signOut() async {
-    update(AuthState.loading());
+    update(const AuthState.loading());
     await _service.signOut();
-    update(AuthState.unauthenticated());
+    update(const AuthState.unauthenticated());
   }
 }
 
@@ -144,21 +122,27 @@ class AuthService {
   final _storage = const FlutterSecureStorage();
   FirebaseAuth? _firebase;
 
-  static const _emailKey = 'starmind_email';
-  static const _tokenKey = 'starmind_token';
+  static const _emailKey = 'nexus_email';
+  static const _tokenKey = 'nexus_token';
 
   Future<AuthState> restoreSession() async {
-    final token = await _storage.read(key: _tokenKey);
-    if (token == null) {
+    try {
+      final token = await _storage.read(key: _tokenKey);
+      if (token == null || token.isEmpty) {
+        return const AuthState.unauthenticated();
+      }
+      return AuthState.authenticated(token);
+    } on PlatformException catch (_) {
+      return const AuthState.unauthenticated();
+    } catch (_) {
       return const AuthState.unauthenticated();
     }
-    return AuthState.authenticated(token);
   }
 
   Future<AuthState> signInWithEmail(String email, String password) async {
     final hashed = _hash(password);
-    await _storage.write(key: _emailKey, value: email);
-    await _storage.write(key: _tokenKey, value: hashed);
+    await _safeWrite(_emailKey, email);
+    await _safeWrite(_tokenKey, hashed);
     return AuthState.authenticated(hashed);
   }
 
@@ -185,30 +169,22 @@ class AuthService {
     );
     await firebase.signInWithCredential(credential);
     final uid = firebase.currentUser?.uid ?? googleUser.id;
-    await _storage.write(key: _tokenKey, value: uid);
+    await _safeWrite(_tokenKey, uid);
     return AuthState.authenticated(uid);
   }
 
   Future<AuthState> signInWithYandex() async {
-    if (!await _hasConnectivity()) {
-      return const AuthState.unauthenticated('Нет подключения к интернету');
-    }
-    final sdk = YandexAuthSdk();
-    final result = await sdk.authenticate();
-    if (result == null) {
-      return const AuthState.unauthenticated();
-    }
-    await _storage.write(key: _tokenKey, value: result.accessToken.value);
-    return AuthState.authenticated(result.accessToken.value);
+    // TODO: Интегрировать после публикации в магазине
+    return const AuthState.unauthenticated('Yandex ID будет доступен после релиза');
   }
 
   Future<void> signOut() async {
-    await _storage.delete(key: _tokenKey);
+    await _safeDelete(_tokenKey);
   }
 
   Future<bool> _hasConnectivity() async {
-    final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    final results = await Connectivity().checkConnectivity();
+    return results.any((result) => result != ConnectivityResult.none);
   }
 
   String _hash(String value) {
@@ -231,4 +207,26 @@ class AuthService {
       return null;
     }
   }
+
+  Future<void> _safeWrite(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value);
+    } on PlatformException catch (_) {
+      // ignore storage errors in offline mode
+    } catch (_) {
+      // ignore storage errors in offline mode
+    }
+  }
+
+  Future<void> _safeDelete(String key) async {
+    try {
+      await _storage.delete(key: key);
+    } on PlatformException catch (_) {
+      // ignore storage errors in offline mode
+    } catch (_) {
+      // ignore storage errors in offline mode
+    }
+  }
+
+}
 

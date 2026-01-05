@@ -11,7 +11,7 @@ class ConnectivityService {
   final Connectivity _connectivity;
 
   Future<bool> isOnline() async {
-    final status = await _connectivity.checkConnectivity();
-    return status != ConnectivityResult.none;
+    final statuses = await _connectivity.checkConnectivity();
+    return statuses.any((status) => status != ConnectivityResult.none);
   }
 }

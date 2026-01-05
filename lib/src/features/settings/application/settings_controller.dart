@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/theme_controller.dart';
+import '../../../services/ai/model_service.dart';
+
+const _deepseekKey = 'nexus_deepseek_token';
 
 final settingsControllerProvider =
     StateNotifierProvider<SettingsController, SettingsState>((ref) {
@@ -15,6 +19,7 @@ class SettingsController extends StateNotifier<SettingsState> {
 
   final Ref ref;
   SharedPreferences? _prefs;
+  final _secureStorage = const FlutterSecureStorage();
 
   Future<void> initialize() async {
     _prefs = await SharedPreferences.getInstance();
@@ -23,7 +28,7 @@ class SettingsController extends StateNotifier<SettingsState> {
     final calendar = _prefs?.getBool(_Keys.calendar) ?? true;
     final skin = ThemeSkin.values.firstWhere(
       (skin) => skin.name == _prefs?.getString(_Keys.themeSkin),
-      orElse: () => ThemeSkin.cosmos,
+      orElse: () => ThemeSkin.dark,
     );
     await ref.read(themeControllerProvider.notifier).setThemeSkin(skin);
     state = state.copyWith(
@@ -34,9 +39,27 @@ class SettingsController extends StateNotifier<SettingsState> {
     );
   }
 
-  Future<void> setOnlineMode(bool value) async {
+  /// Returns true if mode was set successfully.
+  /// Returns false if trying to switch to offline but model is not downloaded.
+  Future<bool> setOnlineMode(bool value) async {
+    // If switching to offline mode, check if model is downloaded
+    if (!value) {
+      final modelService = ref.read(modelServiceProvider);
+      final isModelReady = await modelService.isModelDownloaded('gemma2-2b-q5km');
+      if (!isModelReady) {
+        return false; // Model not downloaded, cannot switch to offline
+      }
+    }
+    
     state = state.copyWith(onlineMode: value);
     await _prefs?.setBool(_Keys.onlineMode, value);
+    return true;
+  }
+
+  /// Check if offline model is available
+  Future<bool> isOfflineModelAvailable() async {
+    final modelService = ref.read(modelServiceProvider);
+    return await modelService.isModelDownloaded('gemma2-2b-q5km');
   }
 
   Future<void> setNotifications(bool value) async {
@@ -54,6 +77,19 @@ class SettingsController extends StateNotifier<SettingsState> {
     await _prefs?.setString(_Keys.themeSkin, skin.name);
     await ref.read(themeControllerProvider.notifier).setThemeSkin(skin);
   }
+
+  Future<void> setDeepSeekApiKey(String key) async {
+    await _secureStorage.write(key: _deepseekKey, value: key);
+  }
+
+  Future<String?> getDeepSeekApiKey() async {
+    return await _secureStorage.read(key: _deepseekKey);
+  }
+
+  Future<bool> hasDeepSeekApiKey() async {
+    final key = await _secureStorage.read(key: _deepseekKey);
+    return key != null && key.isNotEmpty;
+  }
 }
 
 @immutable
@@ -69,7 +105,7 @@ class SettingsState {
         onlineMode: false,
         notificationsEnabled: true,
         calendarEnabled: true,
-        skin: ThemeSkin.cosmos,
+        skin: ThemeSkin.dark,
       );
 
   final bool onlineMode;

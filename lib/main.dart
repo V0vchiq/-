@@ -5,5 +5,5 @@ import 'src/app.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const ProviderScope(child: StarMindApp()));
+  runApp(const ProviderScope(child: NexusApp()));
 }

@@ -14,19 +14,25 @@ class ThemeController extends StateNotifier<ThemeState> {
 
   final FlutterSecureStorage _storage;
 
-  static const _key = 'starmind_theme_mode';
-  static const _skinKey = 'starmind_theme_skin';
+  static const _key = 'nexus_theme_mode';
+  static const _skinKey = 'nexus_theme_skin';
 
   Future<void> load() async {
-    final modeName = await _storage.read(key: _key);
-    final skinName = await _storage.read(key: _skinKey);
+    String? modeName;
+    String? skinName;
+    try {
+      modeName = await _storage.read(key: _key);
+      skinName = await _storage.read(key: _skinKey);
+    } catch (_) {
+      // Ignore storage errors
+    }
     final mode = ThemeMode.values.firstWhere(
       (mode) => mode.name == modeName,
       orElse: () => ThemeMode.dark,
     );
     final skin = ThemeSkin.values.firstWhere(
       (skin) => skin.name == skinName,
-      orElse: () => ThemeSkin.cosmos,
+      orElse: () => ThemeSkin.dark,
     );
     state = state.copyWith(mode: mode, skin: skin);
   }
@@ -47,7 +53,7 @@ class ThemeState {
   const ThemeState({required this.mode, required this.skin});
 
   factory ThemeState.initial() =>
-      const ThemeState(mode: ThemeMode.dark, skin: ThemeSkin.cosmos);
+      const ThemeState(mode: ThemeMode.dark, skin: ThemeSkin.dark);
 
   final ThemeMode mode;
   final ThemeSkin skin;
@@ -57,13 +63,11 @@ class ThemeState {
   }
 }
 
-enum ThemeSkin { cosmos, dark, light }
+enum ThemeSkin { dark, light }
 
 extension ThemeSkinX on ThemeSkin {
   ThemeData get data {
     switch (this) {
-      case ThemeSkin.cosmos:
-        return AppTheme.cosmos;
       case ThemeSkin.dark:
         return AppTheme.dark;
       case ThemeSkin.light:

@@ -9,10 +9,16 @@ class MessageBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isUser = message.sender == ChatSender.user;
     final alignment = isUser ? Alignment.centerRight : Alignment.centerLeft;
-    final color = isUser ? Colors.blueAccent : Colors.white12;
-    final textColor = isUser ? Colors.white : Colors.white70;
+    
+    final color = isUser 
+        ? Colors.blueAccent 
+        : (isDark ? Colors.white12 : Colors.black.withValues(alpha: 0.08));
+    final textColor = isUser 
+        ? Colors.white 
+        : (isDark ? Colors.white70 : const Color(0xFF1a1a2e));
 
     return Align(
       alignment: alignment,
@@ -24,7 +30,7 @@ class MessageBubble extends StatelessWidget {
           color: color,
           borderRadius: BorderRadius.circular(18),
         ),
-        child: Text(
+        child: SelectableText(
           message.content,
           style: TextStyle(color: textColor, fontSize: 15, height: 1.4),
         ),
