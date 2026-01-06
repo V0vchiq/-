@@ -12,3 +12,13 @@
 -keepclasseswithmembernames class * {
     native <methods>;
 }
+
+# OkHttp / Dio networking
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-keep class okhttp3.** { *; }
+-keep class okio.** { *; }
+
+# Flutter
+-keep class io.flutter.** { *; }
+-keep class com.example.nexus.** { *; }
