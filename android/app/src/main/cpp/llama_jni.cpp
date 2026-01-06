@@ -1,15 +1,68 @@
 #include <jni.h>
 #include <android/log.h>
 #include <string>
+#include <vector>
 #include <thread>
 #include <chrono>
 #include "llama.h"
 #include "ggml-backend.h"
-#include "ggml-vulkan.h"
 
 #define TAG "LlamaJNI"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO, TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
+
+// Convert UTF-8 string to JNI jstring safely (handles full Unicode including emojis)
+static jstring utf8ToJstring(JNIEnv* env, const char* utf8, int len) {
+    if (len <= 0) return env->NewStringUTF("");
+    
+    std::vector<jchar> utf16;
+    utf16.reserve(len);
+    
+    const unsigned char* s = (const unsigned char*)utf8;
+    const unsigned char* end = s + len;
+    
+    while (s < end) {
+        uint32_t codepoint = 0;
+        int bytes = 0;
+        
+        if ((*s & 0x80) == 0) {
+            // ASCII
+            codepoint = *s++;
+        } else if ((*s & 0xE0) == 0xC0) {
+            // 2-byte sequence
+            if (s + 1 >= end || (s[1] & 0xC0) != 0x80) { s++; continue; }
+            codepoint = ((*s & 0x1F) << 6) | (s[1] & 0x3F);
+            s += 2;
+        } else if ((*s & 0xF0) == 0xE0) {
+            // 3-byte sequence
+            if (s + 2 >= end || (s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80) { s++; continue; }
+            codepoint = ((*s & 0x0F) << 12) | ((s[1] & 0x3F) << 6) | (s[2] & 0x3F);
+            s += 3;
+        } else if ((*s & 0xF8) == 0xF0) {
+            // 4-byte sequence (emojis, etc.)
+            if (s + 3 >= end || (s[1] & 0xC0) != 0x80 || (s[2] & 0xC0) != 0x80 || (s[3] & 0xC0) != 0x80) { s++; continue; }
+            codepoint = ((*s & 0x07) << 18) | ((s[1] & 0x3F) << 12) | ((s[2] & 0x3F) << 6) | (s[3] & 0x3F);
+            s += 4;
+        } else {
+            // Invalid byte, skip
+            s++;
+            continue;
+        }
+        
+        // Convert codepoint to UTF-16
+        if (codepoint <= 0xFFFF) {
+            utf16.push_back((jchar)codepoint);
+        } else if (codepoint <= 0x10FFFF) {
+            // Surrogate pair for codepoints > 0xFFFF
+            codepoint -= 0x10000;
+            utf16.push_back((jchar)(0xD800 | (codepoint >> 10)));
+            utf16.push_back((jchar)(0xDC00 | (codepoint & 0x3FF)));
+        }
+    }
+    
+    if (utf16.empty()) return env->NewStringUTF("");
+    return env->NewString(utf16.data(), utf16.size());
+}
 
 static llama_model* model = nullptr;
 static llama_context* ctx = nullptr;
@@ -35,21 +88,8 @@ Java_com_example_nexus_LlamaBridge_loadModel(JNIEnv *env, jobject thiz, jstring 
     LOGI("Loading model: %s", path);
 
     llama_model_params model_params = llama_model_default_params();
-    
-    // Проверяем доступность Vulkan GPU
-    int gpu_layers = 0;
-    try {
-        size_t vk_devices = ggml_backend_vk_get_device_count();
-        if (vk_devices > 0) {
-            gpu_layers = 99;  // Используем все слои на GPU
-            LOGI("Vulkan GPU found! Using %d GPU layers", gpu_layers);
-        } else {
-            LOGI("No Vulkan GPU found, using CPU");
-        }
-    } catch (...) {
-        LOGI("Vulkan not available (requires 1.2), using CPU");
-    }
-    model_params.n_gpu_layers = gpu_layers;
+    model_params.n_gpu_layers = 0;  // CPU only
+    LOGI("Using CPU backend");
 
     model = llama_model_load_from_file(path, model_params);
     env->ReleaseStringUTFChars(model_path, path);
@@ -83,7 +123,8 @@ Java_com_example_nexus_LlamaBridge_createContext(JNIEnv *env, jobject thiz, jlon
     llama_context_params ctx_params = llama_context_default_params();
     ctx_params.n_ctx = 2048;
     ctx_params.n_batch = 512;
-    ctx_params.n_threads = std::max(1, (int)std::thread::hardware_concurrency());
+    int total_cores = (int)std::thread::hardware_concurrency();
+    ctx_params.n_threads = std::max(1, total_cores - 2);  // Оставляем 2 ядра для UI
     ctx_params.n_threads_batch = ctx_params.n_threads;
 
     ctx = llama_init_from_model(m, ctx_params);
@@ -182,7 +223,7 @@ Java_com_example_nexus_LlamaBridge_generate(JNIEnv *env, jobject thiz, jstring p
     }
 
     LOGI("Generated %d tokens, result length: %zu", n_generated, result.length());
-    return env->NewStringUTF(result.c_str());
+    return utf8ToJstring(env, result.c_str(), result.length());
 }
 
 // Проверяет содержит ли текст стоп-строку
@@ -291,8 +332,8 @@ Java_com_example_nexus_LlamaBridge_generateWithCallback(JNIEnv *env, jobject thi
                 break;
             }
             
-            // Отправляем токен через callback
-            jstring tokenStr = env->NewStringUTF(buf);
+            // Отправляем токен через callback (используем utf8ToJstring для поддержки эмодзи)
+            jstring tokenStr = utf8ToJstring(env, buf, n);
             if (tokenStr != nullptr) {
                 env->CallVoidMethod(callback, onTokenMethod, tokenStr);
                 env->DeleteLocalRef(tokenStr);

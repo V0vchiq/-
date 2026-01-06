@@ -117,7 +117,7 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
   Widget build(BuildContext context) {
     final selectedModel = ref.watch(selectedModelProvider);
     final downloadState = ref.watch(modelDownloadStateProvider);
-    final allModels = ModelService.availableModels;
+    const allModels = ModelService.availableModels;
     
     // Категории офлайн моделей
     final lightModels = allModels.where((m) => 
@@ -175,8 +175,7 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
                   
                   // Легкие модели
                   _buildCategory(
-                    'Легкие модели',
-                    'Несложные вопросы',
+                    'Лёгкие модели',
                     Icons.bolt,
                     lightModels,
                     selectedModel,
@@ -188,7 +187,6 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
                   // Универсальные модели
                   _buildCategory(
                     'Универсальные модели',
-                    'Логика, рассуждение, повседневные вопросы',
                     Icons.psychology,
                     universalModels,
                     selectedModel,
@@ -199,8 +197,7 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
                   
                   // Тяжелые модели
                   _buildCategory(
-                    'Тяжелые модели',
-                    'Сложные вопросы, требуется мощный смартфон',
+                    'Тяжёлые модели',
                     Icons.rocket_launch,
                     heavyModels,
                     selectedModel,
@@ -212,7 +209,6 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
                   // Онлайн модель
                   _buildCategory(
                     'Онлайн модель',
-                    'Требуется интернет',
                     Icons.cloud_outlined,
                     onlineModels,
                     selectedModel,
@@ -376,7 +372,6 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
 
   Widget _buildCategory(
     String title,
-    String subtitle,
     IconData icon,
     List<AIModel> models,
     AIModel? selectedModel,
@@ -385,7 +380,6 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
   ) {
     final iconColor = isDark ? Colors.white54 : Colors.black45;
     final textColor = isDark ? Colors.white : Colors.black87;
-    final subtitleColor = isDark ? Colors.white38 : Colors.black38;
     
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,25 +388,13 @@ class _ModelSelectorScreenState extends ConsumerState<ModelSelectorScreen>
           children: [
             Icon(icon, color: iconColor, size: 20),
             const SizedBox(width: 10),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: subtitleColor,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+            Text(
+              title,
+              style: TextStyle(
+                color: textColor,
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),

@@ -336,8 +336,6 @@ class LlamaBridge {
                 Log.d(TAG, "ggml-base loaded")
                 System.loadLibrary("ggml-cpu")
                 Log.d(TAG, "ggml-cpu loaded")
-                System.loadLibrary("ggml-vulkan")
-                Log.d(TAG, "ggml-vulkan loaded")
                 System.loadLibrary("ggml")
                 Log.d(TAG, "ggml loaded")
                 System.loadLibrary("llama")

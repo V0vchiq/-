@@ -1,14 +1,11 @@
 import 'dart:convert';
 
-import 'package:connectivity_plus/connectivity_plus.dart';
+
 import 'package:crypto/crypto.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/services.dart';
 
 import '../../features/chat/presentation/chat_shell.dart';
@@ -75,18 +72,6 @@ class AuthController extends AuthListenable {
     update(result);
   }
 
-  Future<void> signInWithGoogle() async {
-    update(const AuthState.loading());
-    final result = await _service.signInWithGoogle();
-    update(result);
-  }
-
-  Future<void> signInWithYandex() async {
-    update(const AuthState.loading());
-    final result = await _service.signInWithYandex();
-    update(result);
-  }
-
   Future<void> signOut() async {
     update(const AuthState.loading());
     await _service.signOut();
@@ -120,7 +105,6 @@ class AuthService {
 
   final Ref ref;
   final _storage = const FlutterSecureStorage();
-  FirebaseAuth? _firebase;
 
   static const _emailKey = 'nexus_email';
   static const _tokenKey = 'nexus_token';
@@ -150,62 +134,14 @@ class AuthService {
     return signInWithEmail(email, password);
   }
 
-  Future<AuthState> signInWithGoogle() async {
-    if (!await _hasConnectivity()) {
-      return const AuthState.unauthenticated('Нет подключения к интернету');
-    }
-    final googleUser = await GoogleSignIn().signIn();
-    if (googleUser == null) {
-      return const AuthState.unauthenticated();
-    }
-    final googleAuth = await googleUser.authentication;
-    final firebase = await _ensureFirebase();
-    if (firebase == null) {
-      return const AuthState.unauthenticated('Firebase не настроен');
-    }
-    final credential = GoogleAuthProvider.credential(
-      idToken: googleAuth.idToken,
-      accessToken: googleAuth.accessToken,
-    );
-    await firebase.signInWithCredential(credential);
-    final uid = firebase.currentUser?.uid ?? googleUser.id;
-    await _safeWrite(_tokenKey, uid);
-    return AuthState.authenticated(uid);
-  }
-
-  Future<AuthState> signInWithYandex() async {
-    // TODO: Интегрировать после публикации в магазине
-    return const AuthState.unauthenticated('Yandex ID будет доступен после релиза');
-  }
-
   Future<void> signOut() async {
     await _safeDelete(_tokenKey);
-  }
-
-  Future<bool> _hasConnectivity() async {
-    final results = await Connectivity().checkConnectivity();
-    return results.any((result) => result != ConnectivityResult.none);
   }
 
   String _hash(String value) {
     final bytes = utf8.encode(value);
     final digest = sha256.convert(bytes);
     return digest.toString();
-  }
-
-  Future<FirebaseAuth?> _ensureFirebase() async {
-    if (_firebase != null) {
-      return _firebase;
-    }
-    try {
-      if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp();
-      }
-      _firebase = FirebaseAuth.instance;
-      return _firebase;
-    } catch (_) {
-      return null;
-    }
   }
 
   Future<void> _safeWrite(String key, String value) async {
@@ -227,6 +163,5 @@ class AuthService {
       // ignore storage errors in offline mode
     }
   }
-
 }
 

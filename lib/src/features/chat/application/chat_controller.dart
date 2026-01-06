@@ -186,7 +186,6 @@ class ChatController extends StateNotifier<ChatState> {
     final trimmed = text.trim();
     final attached = state.attachedFile;
     
-    // Проверка: есть текст или поддерживаемый файл
     if (trimmed.isEmpty && attached == null) return;
     if (state.isProcessing) return;
     
@@ -458,7 +457,16 @@ class ChatController extends StateNotifier<ChatState> {
   void cancelGeneration() {
     if (!state.isProcessing) return;
     _isCancelled = true;
-    _ai.stopGeneration(); // Останавливаем нативную генерацию
+    
+    final selectedModel = ref.read(selectedModelProvider);
+    if (selectedModel?.type == ModelType.online) {
+      // Отменяем HTTP запрос для онлайн модели
+      ref.read(onlineAiServiceProvider).cancelStream();
+    } else {
+      // Останавливаем нативную генерацию для офлайн модели
+      _ai.stopGeneration();
+    }
+    
     state = state.copyWith(isProcessing: false);
   }
 

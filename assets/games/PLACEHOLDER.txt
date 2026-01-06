@@ -1,1 +1,0 @@
-Store trivia questions and word lists for offline games.

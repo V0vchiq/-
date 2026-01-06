@@ -108,7 +108,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   _AnimatedIcon(size: _isFirstLaunch ? 240 : 192),
                   const SizedBox(height: 24),
                   const Text(
-                    'AI Assistant',
+                    'Offline AI Assistant',
                     style: TextStyle(color: Colors.white70, fontSize: 16),
                   ),
                 ],

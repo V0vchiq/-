@@ -33,12 +33,6 @@ set_target_properties(prebuilt-ggml-base PROPERTIES IMPORTED_LOCATION ${PREBUILT
 add_library(prebuilt-ggml-cpu SHARED IMPORTED)
 set_target_properties(prebuilt-ggml-cpu PROPERTIES IMPORTED_LOCATION ${PREBUILT_DIR}/libggml-cpu.so)
 
-add_library(prebuilt-ggml-vulkan SHARED IMPORTED)
-set_target_properties(prebuilt-ggml-vulkan PROPERTIES IMPORTED_LOCATION ${PREBUILT_DIR}/libggml-vulkan.so)
-
-# Находим Vulkan
-find_library(vulkan-lib vulkan)
-
 # JNI библиотека
 add_library(llama-android SHARED llama_jni.cpp)
 
@@ -52,8 +46,6 @@ target_link_libraries(llama-android
     prebuilt-ggml
     prebuilt-ggml-base
     prebuilt-ggml-cpu
-    prebuilt-ggml-vulkan
-    ${vulkan-lib}
     android
     log
 )

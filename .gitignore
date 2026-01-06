@@ -50,3 +50,6 @@ assets/models/*.onnx.data
 
 # Large tool outputs (RAG, embeddings)
 tools/output/
+
+# llama.cpp source (build locally)
+llama.cpp/

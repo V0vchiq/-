@@ -122,55 +122,97 @@ class DownloadService : Service() {
         val outputFile = File(modelsDir, "$modelId.gguf")
         val tempFile = File(modelsDir, "$modelId.gguf.tmp")
         
-        val url = URL(urlString)
-        val connection = url.openConnection() as HttpURLConnection
-        connection.connectTimeout = 30000
-        connection.readTimeout = 30000
+        val maxRetries = 3
+        var attempt = 0
+        var lastException: Exception? = null
         
-        try {
-            connection.connect()
-            val totalSize = if (expectedSize > 0) expectedSize else connection.contentLengthLong
+        while (attempt < maxRetries) {
+            attempt++
+            var connection: HttpURLConnection? = null
             
-            connection.inputStream.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    val buffer = ByteArray(8192)
-                    var downloaded = 0L
-                    var bytesRead: Int
-                    var lastNotifyTime = System.currentTimeMillis()
-                    
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        if (!downloadJob!!.isActive) throw CancellationException()
+            try {
+                val downloadedSoFar = if (tempFile.exists()) tempFile.length() else 0L
+                
+                val url = URL(urlString)
+                connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 30000
+                connection.readTimeout = 60000
+                
+                // Поддержка возобновления загрузки
+                if (downloadedSoFar > 0) {
+                    connection.setRequestProperty("Range", "bytes=$downloadedSoFar-")
+                    Log.d(TAG, "Resuming download from $downloadedSoFar bytes (attempt $attempt)")
+                } else {
+                    Log.d(TAG, "Starting download (attempt $attempt)")
+                }
+                
+                connection.connect()
+                
+                val responseCode = connection.responseCode
+                val isResume = responseCode == 206
+                // Берём размер с сервера - он всегда актуальный
+                val totalSize = if (isResume) {
+                    downloadedSoFar + connection.contentLengthLong
+                } else {
+                    connection.contentLengthLong
+                }
+                
+                connection.inputStream.use { input ->
+                    FileOutputStream(tempFile, isResume).use { output ->
+                        val buffer = ByteArray(8192)
+                        var downloaded = downloadedSoFar
+                        var bytesRead: Int
+                        var lastNotifyTime = System.currentTimeMillis()
                         
-                        output.write(buffer, 0, bytesRead)
-                        downloaded += bytesRead
-                        
-                        val now = System.currentTimeMillis()
-                        if (now - lastNotifyTime > 500) { // Update every 500ms
-                            val progress = if (totalSize > 0) downloaded.toDouble() / totalSize else 0.0
-                            currentProgress = progress
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            if (!downloadJob!!.isActive) throw CancellationException()
                             
-                            withContext(Dispatchers.Main) {
-                                updateNotification(modelName, (progress * 100).toInt())
-                                notifyProgress(modelId, progress, "downloading")
+                            output.write(buffer, 0, bytesRead)
+                            downloaded += bytesRead
+                            
+                            val now = System.currentTimeMillis()
+                            if (now - lastNotifyTime > 500) {
+                                val progress = if (totalSize > 0) (downloaded.toDouble() / totalSize).coerceAtMost(1.0) else 0.0
+                                currentProgress = progress
+                                
+                                withContext(Dispatchers.Main) {
+                                    updateNotification(modelName, (progress * 100).toInt())
+                                    notifyProgress(modelId, progress, "downloading")
+                                }
+                                lastNotifyTime = now
                             }
-                            lastNotifyTime = now
                         }
                     }
                 }
+                
+                // Успешно загружено
+                tempFile.renameTo(outputFile)
+                
+                withContext(Dispatchers.Main) {
+                    updateNotification(modelName, 100)
+                    notifyProgress(modelId, 1.0, "completed")
+                }
+                
+                Log.d(TAG, "Download completed: ${outputFile.absolutePath}")
+                return // Выход из функции при успехе
+                
+            } catch (e: CancellationException) {
+                throw e // Не retry при отмене
+            } catch (e: Exception) {
+                lastException = e
+                Log.w(TAG, "Download attempt $attempt failed: ${e.message}")
+                
+                if (attempt < maxRetries) {
+                    // Ждём перед повторной попыткой
+                    delay(2000L * attempt)
+                }
+            } finally {
+                connection?.disconnect()
             }
-            
-            tempFile.renameTo(outputFile)
-            
-            withContext(Dispatchers.Main) {
-                updateNotification(modelName, 100)
-                notifyProgress(modelId, 1.0, "completed")
-            }
-            
-            Log.d(TAG, "Download completed: ${outputFile.absolutePath}")
-            
-        } finally {
-            connection.disconnect()
         }
+        
+        // Все попытки исчерпаны
+        throw lastException ?: Exception("Download failed after $maxRetries attempts")
     }
     
     private fun cancelDownload() {

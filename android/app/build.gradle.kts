@@ -20,6 +20,12 @@ android {
         jvmTarget = JavaVersion.VERSION_11.toString()
     }
 
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true // Извлекать .so файлы вместо загрузки из APK
+        }
+    }
+
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
         applicationId = "com.example.nexus"

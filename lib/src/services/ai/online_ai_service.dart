@@ -20,9 +20,15 @@ class OnlineAiService {
 
   final Dio _dio;
   final FlutterSecureStorage _storage;
+  CancelToken? _cancelToken;
 
   static const _deepseekKey = 'nexus_deepseek_token';
   static const _defaultDeepSeekKey = 'sk-2f926e2bcf3f455cb8fa0db469349d3a';
+
+  void cancelStream() {
+    _cancelToken?.cancel('User cancelled');
+    _cancelToken = null;
+  }
 
   Future<void> setApiKey(String apiKey) async {
     await _storage.write(key: _deepseekKey, value: apiKey);
@@ -111,9 +117,11 @@ class OnlineAiService {
 
     try {
       debugPrint('[DeepSeek] Starting stream...');
+      _cancelToken = CancelToken();
       final response = await _dio.post<ResponseBody>(
         'https://api.deepseek.com/v1/chat/completions',
         data: payload,
+        cancelToken: _cancelToken,
         options: Options(
           headers: {
             'Authorization': 'Bearer $token',
@@ -150,8 +158,16 @@ class OnlineAiService {
         }
       }
       debugPrint('[DeepSeek] Stream completed');
+    } on DioException catch (e) {
+      if (e.type == DioExceptionType.cancel) {
+        debugPrint('[DeepSeek] Stream cancelled by user');
+      } else {
+        debugPrint('[DeepSeek] Stream error: $e');
+      }
     } catch (e) {
       debugPrint('[DeepSeek] Stream error: $e');
+    } finally {
+      _cancelToken = null;
     }
   }
 }

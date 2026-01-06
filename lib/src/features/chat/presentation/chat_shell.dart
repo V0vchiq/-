@@ -81,7 +81,13 @@ class _ChatShellState extends ConsumerState<ChatShell> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(modelName, style: TextStyle(color: titleColor, fontSize: 16)),
+              Flexible(
+                child: Text(
+                  modelName, 
+                  style: TextStyle(color: titleColor, fontSize: 16),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               const SizedBox(width: 4),
               Icon(Icons.arrow_drop_down, color: iconColor, size: 20),
             ],
@@ -130,6 +136,7 @@ class _ChatShellState extends ConsumerState<ChatShell> {
                   _controller.clear();
                   await chat.sendText(text);
                 },
+
                 onAttach: chat.ingestFile,
                 onRemoveAttachment: chat.removeAttachedFile,
                 onCancel: chat.cancelGeneration,
