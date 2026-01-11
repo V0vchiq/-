@@ -39,14 +39,6 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  
   assets:
     - assets/images/
-    - assets/models/config.json
-    - assets/models/genai_config.json
-    - assets/models/tokenizer.json
-    - assets/models/tokenizer_config.json
-    - assets/models/tokenizer.model
-    - assets/models/special_tokens_map.json
-    - assets/models/added_tokens.json
-    - assets/models/configuration_phi3.py
-    - assets/prompts/
