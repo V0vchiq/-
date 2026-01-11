@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/neural_brain.dart';
 import '../../chat/presentation/chat_shell.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -105,7 +106,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     ),
                   ),
                   const SizedBox(height: 48),
-                  _AnimatedIcon(size: _isFirstLaunch ? 240 : 192),
+                  NeuralBrainWidget(size: _isFirstLaunch ? 240 : 192),
                   const SizedBox(height: 24),
                   const Text(
                     'Offline AI Assistant',
@@ -121,56 +122,4 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 }
 
-class _AnimatedIcon extends StatefulWidget {
-  const _AnimatedIcon({this.size = 192});
 
-  final double size;
-
-  @override
-  State<_AnimatedIcon> createState() => _AnimatedIconState();
-}
-
-class _AnimatedIconState extends State<_AnimatedIcon>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    );
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
-    _pulseController.repeat(reverse: true);
-  }
-
-  @override
-  void dispose() {
-    _pulseController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        return Transform.scale(
-          scale: _pulseAnimation.value,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(widget.size * 0.2),
-            child: Image.asset(
-              'assets/images/app_icon.png',
-              width: widget.size,
-              height: widget.size,
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
