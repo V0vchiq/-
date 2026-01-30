@@ -1,5 +1,0 @@
-# Host toolchain for Windows (MSVC)
-set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_C_COMPILER "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.37.32822/bin/Hostx64/x64/cl.exe")
-set(CMAKE_CXX_COMPILER "C:/Program Files/Microsoft Visual Studio/2022/Professional/VC/Tools/MSVC/14.37.32822/bin/Hostx64/x64/cl.exe")
-set(CMAKE_MAKE_PROGRAM "C:/Users/rubis/ninja/ninja.exe")

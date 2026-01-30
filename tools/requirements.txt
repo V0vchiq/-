@@ -1,7 +1,0 @@
-# RAG Index Creator dependencies
-torch
-sentence-transformers
-faiss-cpu
-datasets
-tqdm
-numpy
